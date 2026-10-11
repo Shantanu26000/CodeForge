@@ -1,4 +1,5 @@
-
+const authRoutes = require("./routes/authRoutes");
+const authMiddleware = require("./middleware/authMiddleware");
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
@@ -14,7 +15,14 @@ app.use(helmet());
 app.use(cors({ origin: "http://localhost:3000" }));
 app.use(express.json());
 app.use(morgan("dev"));
+app.use("/api/auth", authRoutes);
 
+app.get("/api/auth/me", authMiddleware, (req, res) => {
+  res.json({
+    message: "Authentication successful",
+    user: req.user,
+  });
+});
 app.get("/", (req, res) => {
   res.json({
     success: true,
