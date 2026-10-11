@@ -1,4 +1,5 @@
 const authRoutes = require("./routes/authRoutes");
+const problemRoutes = require("./routes/problemRoutes");
 const authMiddleware = require("./middleware/authMiddleware");
 const express = require("express");
 const cors = require("cors");
@@ -16,6 +17,7 @@ app.use(cors({ origin: "http://localhost:3000" }));
 app.use(express.json());
 app.use(morgan("dev"));
 app.use("/api/auth", authRoutes);
+app.use("/api/problems", problemRoutes);
 
 app.get("/api/auth/me", authMiddleware, (req, res) => {
   res.json({
