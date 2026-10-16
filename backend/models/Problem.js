@@ -19,6 +19,25 @@ const exampleSchema = new mongoose.Schema(
   { _id: false }
 );
 
+// Test cases used by the online judge
+const testCaseSchema = new mongoose.Schema(
+  {
+    input: {
+      type: String,
+      required: true,
+    },
+    expectedOutput: {
+      type: String,
+      required: true,
+    },
+    isHidden: {
+      type: Boolean,
+      default: true,
+    },
+  },
+  { _id: false }
+);
+
 const problemSchema = new mongoose.Schema(
   {
     title: {
@@ -60,6 +79,10 @@ const problemSchema = new mongoose.Schema(
         validator: (examples) => examples.length > 0,
         message: "At least one example is required",
       },
+    },
+    testCases: {
+      type: [testCaseSchema],
+      default: [],
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,

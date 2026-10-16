@@ -1,4 +1,6 @@
+const submissionRoutes = require("./routes/submissionRoutes");
 const authRoutes = require("./routes/authRoutes");
+const codeExecutionRoutes = require("./routes/codeExecutionRoutes");
 const problemRoutes = require("./routes/problemRoutes");
 const authMiddleware = require("./middleware/authMiddleware");
 const express = require("express");
@@ -17,7 +19,9 @@ app.use(cors({ origin: "http://localhost:3000" }));
 app.use(express.json());
 app.use(morgan("dev"));
 app.use("/api/auth", authRoutes);
+app.use("/api/execute", codeExecutionRoutes);
 app.use("/api/problems", problemRoutes);
+app.use("/api/submissions", submissionRoutes);
 
 app.get("/api/auth/me", authMiddleware, (req, res) => {
   res.json({

@@ -1,9 +1,11 @@
 
 const express = require("express");
+
 const {
   createProblem,
   getProblems,
   getProblemById,
+  getProblemBySlug,
   validateProblem,
   validateProblemQuery,
   validateProblemId,
@@ -17,7 +19,10 @@ const router = express.Router();
 // List published problems
 router.get("/", validateProblemQuery, getProblems);
 
-// Get a published problem by ID
+// Retrieve a published problem by slug
+router.get("/slug/:slug", getProblemBySlug);
+
+// Retrieve a published problem by MongoDB ID
 router.get("/:id", validateProblemId, getProblemById);
 
 // Create a problem (admins only)

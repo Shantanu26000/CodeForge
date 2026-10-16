@@ -123,10 +123,12 @@ const getProblemById = async (req, res) => {
 
     const { id } = req.params;
 
-    const problem = await Problem.findOne({
-      _id: new mongoose.Types.ObjectId(id),
-      isPublished: true,
-    }).lean();
+const problem = await Problem.findOne({
+  _id: new mongoose.Types.ObjectId(id),
+  isPublished: true,
+})
+  .select("-testCases")
+  .lean();
 
     if (!problem) {
       return res.status(404).json({ message: "Problem not found" });
@@ -139,10 +141,41 @@ const getProblemById = async (req, res) => {
   }
 };
 
+
+const getProblemBySlug = async (req, res) => {
+  try {
+    const slug = req.params.slug.toLowerCase();
+
+const problem = await Problem.findOne({
+  slug,
+  isPublished: true,
+})
+  .select("-testCases")
+  .lean();
+
+    if (!problem) {
+      return res.status(404).json({
+        message: "Problem not found",
+      });
+    }
+
+    return res.status(200).json({ problem });
+  } catch (error) {
+    console.error("Get problem by slug error:", error.message);
+
+    return res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+};
+
+
+
 module.exports = {
   createProblem,
   getProblems,
   getProblemById,
+  getProblemBySlug,
   validateProblem,
   validateProblemQuery,
   validateProblemId,
