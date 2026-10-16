@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   Code2,
   LayoutDashboard,
@@ -234,17 +235,28 @@ export default function Home() {
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="hidden items-center gap-2 rounded-full border border-slate-800 bg-slate-900/80 px-3 py-2 sm:flex">
-              <span className="h-2 w-2 rounded-full bg-emerald-400" />
-              <span className="text-xs text-slate-400">
-                Platform online
-              </span>
-            </div>
-            <button className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-700 bg-slate-800 text-sm font-bold text-violet-300">
-              CF
-            </button>
-          </div>
+
+<div className="flex items-center gap-3">
+  <div className="hidden items-center gap-2 rounded-full border border-slate-800 bg-slate-900/80 px-3 py-2 sm:flex">
+    <span className="h-2 w-2 rounded-full bg-emerald-400" />
+    <span className="text-xs text-slate-400">Platform online</span>
+  </div>
+
+  <Link
+    href="/login"
+    className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-medium text-slate-300 transition hover:border-violet-500 hover:text-white"
+  >
+    Login
+  </Link>
+
+  <Link
+    href="/register"
+    className="rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-violet-500"
+  >
+    Register
+  </Link>
+</div>
+
         </header>
 
         <div className="mx-auto max-w-[1440px] px-4 py-8 sm:px-8 sm:py-10">
