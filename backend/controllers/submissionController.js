@@ -1,6 +1,7 @@
 
 const { body, validationResult } = require("express-validator");
 const Problem = require("../models/Problem");
+const Submission = require("../models/Submission");
 const { executeCode } = require("../services/codeExecutionService");
 
 const validateSubmission = [
@@ -59,7 +60,6 @@ const submitCode = async (req, res) => {
 
     for (let i = 0; i < problem.testCases.length; i++) {
       const testCase = problem.testCases[i];
-
       let execution;
 
       try {
@@ -138,11 +138,32 @@ const submitCode = async (req, res) => {
       });
     }
 
+    const passed = results.filter(
+      (item) => item.status === "Passed"
+    ).length;
+
+    const time = Number(totalTime.toFixed(3));
+
+    // Save the submission using the authenticated user's ID.
+    // authMiddleware must set req.user.userId.
+    await Submission.create({
+      user: req.user.userId,
+      problem: problem._id,
+      problemSlug: problem.slug,
+      code,
+      language,
+      verdict,
+      passed,
+      total: problem.testCases.length,
+      time,
+      memory: totalMemory,
+    });
+
     return res.status(200).json({
       verdict,
-      passed: results.filter((item) => item.status === "Passed").length,
+      passed,
       total: problem.testCases.length,
-      time: Number(totalTime.toFixed(3)),
+      time,
       memory: totalMemory,
       results,
     });
@@ -154,4 +175,31 @@ const submitCode = async (req, res) => {
   }
 };
 
-module.exports = { validateSubmission, submitCode };
+const getSubmissionHistory = async (req, res) => {
+  try {
+    const submissions = await Submission.find({
+      user: req.user.userId,
+    })
+      .populate("problem", "title slug difficulty")
+      .select("-code")
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean();
+
+    return res.status(200).json({
+      count: submissions.length,
+      submissions,
+    });
+  } catch (error) {
+    console.error("Submission history error:", error.message);
+    return res.status(500).json({
+      message: "Failed to fetch submission history.",
+    });
+  }
+};
+
+module.exports = {
+  validateSubmission,
+  submitCode,
+  getSubmissionHistory,
+};

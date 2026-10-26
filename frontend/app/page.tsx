@@ -25,6 +25,16 @@ import { getProblems, type Problem } from "./lib/api";
 
 type Difficulty = "Easy" | "Medium" | "Hard";
 
+type UserProgress = {
+  totalSubmissions: number;
+  acceptedSubmissions: number;
+  solvedProblems: number;
+  acceptanceRate: number;
+};
+
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+
 const navItems = [
   { label: "Dashboard", icon: LayoutDashboard },
   { label: "Problems", icon: BookOpen },
@@ -48,6 +58,11 @@ export default function Home() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const [progress, setProgress] = useState<UserProgress | null>(null);
+  const [progressLoading, setProgressLoading] = useState(true);
+  const [progressError, setProgressError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -77,7 +92,9 @@ export default function Home() {
           );
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
 
@@ -86,7 +103,66 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [search, difficulty]);
+  }, [search, difficulty, reloadKey]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProgress() {
+      setProgressLoading(true);
+      setProgressError("");
+
+      try {
+        const token = localStorage.getItem("token");
+
+        if (!token) {
+          if (!cancelled) {
+            setProgress(null);
+            setProgressError("Log in to view your progress.");
+          }
+          return;
+        }
+
+        const response = await fetch(`${API_BASE_URL}/progress`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          cache: "no-store",
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message || "Unable to load your progress."
+          );
+        }
+
+        if (!cancelled) {
+          setProgress(data);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setProgress(null);
+          setProgressError(
+            err instanceof Error
+              ? err.message
+              : "Unable to load your progress."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setProgressLoading(false);
+        }
+      }
+    }
+
+    loadProgress();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const counts = {
     Easy: problems.filter((p) => p.difficulty === "Easy").length,
@@ -104,7 +180,9 @@ export default function Home() {
           <h1 className="text-lg font-bold tracking-tight text-white">
             CodeForge<span className="text-violet-400">.</span>
           </h1>
-          <p className="text-xs text-slate-500">Learn. Solve. Level up.</p>
+          <p className="text-xs text-slate-500">
+            Learn. Solve. Level up.
+          </p>
         </div>
       </div>
 
@@ -115,9 +193,20 @@ export default function Home() {
 
         <nav className="space-y-1">
           {navItems.map(({ label, icon: Icon }) => (
-            <button
+            <Link
               key={label}
-              onClick={() => {
+              href={
+                label === "Submissions"
+                  ? "/history"
+                  : label === "Dashboard" || label === "Problems"
+                    ? "/"
+                    : "#"
+              }
+              onClick={(event) => {
+                if (label === "Contests") {
+                  event.preventDefault();
+                }
+
                 setActiveNav(label);
                 setMobileMenuOpen(false);
               }}
@@ -129,13 +218,12 @@ export default function Home() {
             >
               <Icon size={18} />
               {label}
-
               {label === "Problems" && (
                 <span className="ml-auto rounded-md bg-slate-700/70 px-2 py-0.5 text-xs text-slate-300">
                   {total}
                 </span>
               )}
-            </button>
+            </Link>
           ))}
         </nav>
       </div>
@@ -160,7 +248,11 @@ export default function Home() {
         </div>
 
         <button
-          onClick={() => setActiveNav("Settings")}
+          type="button"
+          onClick={() => {
+            setActiveNav("Settings");
+            setMobileMenuOpen(false);
+          }}
           className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm text-slate-400 transition hover:bg-slate-800 hover:text-white"
         >
           <Settings size={18} />
@@ -187,6 +279,7 @@ export default function Home() {
     <div className="min-h-screen bg-[#080b14] text-slate-200">
       {mobileMenuOpen && (
         <button
+          type="button"
           aria-label="Close navigation"
           onClick={() => setMobileMenuOpen(false)}
           className="fixed inset-0 z-40 bg-black/60 lg:hidden"
@@ -203,6 +296,7 @@ export default function Home() {
         }`}
       >
         <button
+          type="button"
           aria-label="Close menu"
           onClick={() => setMobileMenuOpen(false)}
           className="absolute right-4 top-6 rounded-lg p-2 text-slate-400 hover:bg-slate-800"
@@ -216,6 +310,7 @@ export default function Home() {
         <header className="sticky top-0 z-30 flex h-[72px] items-center justify-between border-b border-slate-800/80 bg-[#080b14]/90 px-4 backdrop-blur-xl sm:px-8">
           <div className="flex items-center gap-3">
             <button
+              type="button"
               aria-label="Open menu"
               onClick={() => setMobileMenuOpen(true)}
               className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 lg:hidden"
@@ -235,28 +330,26 @@ export default function Home() {
             </span>
           </div>
 
-
-<div className="flex items-center gap-3">
-  <div className="hidden items-center gap-2 rounded-full border border-slate-800 bg-slate-900/80 px-3 py-2 sm:flex">
-    <span className="h-2 w-2 rounded-full bg-emerald-400" />
-    <span className="text-xs text-slate-400">Platform online</span>
-  </div>
-
-  <Link
-    href="/login"
-    className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-medium text-slate-300 transition hover:border-violet-500 hover:text-white"
-  >
-    Login
-  </Link>
-
-  <Link
-    href="/register"
-    className="rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-violet-500"
-  >
-    Register
-  </Link>
-</div>
-
+          <div className="flex items-center gap-3">
+            <div className="hidden items-center gap-2 rounded-full border border-slate-800 bg-slate-900/80 px-3 py-2 sm:flex">
+              <span className="h-2 w-2 rounded-full bg-emerald-400" />
+              <span className="text-xs text-slate-400">
+                Platform online
+              </span>
+            </div>
+            <Link
+              href="/login"
+              className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-medium text-slate-300 transition hover:border-violet-500 hover:text-white"
+            >
+              Login
+            </Link>
+            <Link
+              href="/register"
+              className="rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-violet-500"
+            >
+              Register
+            </Link>
+          </div>
         </header>
 
         <div className="mx-auto max-w-[1440px] px-4 py-8 sm:px-8 sm:py-10">
@@ -266,17 +359,14 @@ export default function Home() {
                 <span className="h-1.5 w-1.5 rounded-full bg-violet-400" />
                 YOUR CODING JOURNEY STARTS HERE
               </div>
-
               <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
                 Problem <span className="text-violet-400">Library</span>
               </h2>
-
               <p className="mt-3 max-w-xl text-sm leading-6 text-slate-400 sm:text-base">
                 Sharpen your skills, master algorithms, and become a better
                 problem solver one challenge at a time.
               </p>
             </div>
-
             <div className="flex items-center gap-2 text-xs text-slate-500">
               <span className="h-2 w-2 rounded-full bg-emerald-400" />
               Practice at your own pace
@@ -308,9 +398,11 @@ export default function Home() {
                   <CheckCircle2 size={17} />
                 </div>
               </div>
-              <p className="mt-4 text-2xl font-bold text-white">0</p>
+              <p className="mt-4 text-2xl font-bold text-white">
+                {progressLoading ? "..." : progress?.solvedProblems ?? "—"}
+              </p>
               <p className="mt-1 text-xs text-slate-500">
-                Submission tracking coming soon
+                {progressError || "Unique problems accepted"}
               </p>
             </div>
 
@@ -334,17 +426,23 @@ export default function Home() {
             <div className="rounded-2xl border border-slate-800 bg-[#0d1220] p-4 sm:p-5">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-slate-400 sm:text-sm">
-                  Hard problems
+                  Acceptance rate
                 </span>
-                <div className="rounded-lg bg-rose-400/10 p-2 text-rose-400">
+                <div className="rounded-lg bg-violet-400/10 p-2 text-violet-300">
                   <Zap size={17} />
                 </div>
               </div>
               <p className="mt-4 text-2xl font-bold text-white">
-                {counts.Hard}
+                {progressLoading
+                  ? "..."
+                  : progress
+                    ? `${progress.acceptanceRate}%`
+                    : "—"}
               </p>
-              <p className="mt-1 text-xs text-rose-300">
-                Challenge yourself
+              <p className="mt-1 text-xs text-slate-500">
+                {progress
+                  ? `${progress.acceptedSubmissions} accepted of ${progress.totalSubmissions} submissions`
+                  : progressError || "Your submission success rate"}
               </p>
             </div>
           </section>
@@ -405,6 +503,7 @@ export default function Home() {
               <div className="mt-5 flex flex-wrap gap-2">
                 {["All", "Easy", "Medium", "Hard"].map((level) => (
                   <button
+                    type="button"
                     key={level}
                     onClick={() => setDifficulty(level)}
                     className={`rounded-lg px-3.5 py-2 text-xs font-medium transition ${
@@ -416,7 +515,6 @@ export default function Home() {
                     {level}
                   </button>
                 ))}
-
                 <span className="ml-auto self-center text-xs text-slate-500">
                   {loading ? "Loading..." : `${problems.length} results`}
                 </span>
@@ -455,9 +553,8 @@ export default function Home() {
                       >
                         {error}
                         <button
-                          onClick={() => {
-                            setSearch((current) => current);
-                          }}
+                          type="button"
+                          onClick={() => setReloadKey((key) => key + 1)}
                           className="ml-2 underline"
                         >
                           Retry
@@ -478,9 +575,13 @@ export default function Home() {
                         </td>
 
                         <td className="px-4 py-4">
-                          <div className="text-sm font-medium text-slate-200 transition group-hover:text-violet-300">
+                          <Link
+                            href={`/problems/${encodeURIComponent(problem.slug)}`}
+                            prefetch={false}
+                            className="inline-block cursor-pointer text-sm font-medium text-slate-200 transition hover:text-violet-300"
+                          >
                             {problem.title}
-                          </div>
+                          </Link>
                           <p className="mt-1 text-[11px] text-slate-600">
                             Problem #{problem._id.slice(-6)}
                           </p>
@@ -488,9 +589,7 @@ export default function Home() {
 
                         <td className="px-4 py-4">
                           <span
-                            className={`inline-flex rounded-md px-2.5 py-1 text-xs font-medium ${
-                              difficultyStyles[problem.difficulty]
-                            }`}
+                            className={`inline-flex rounded-md px-2.5 py-1 text-xs font-medium ${difficultyStyles[problem.difficulty]}`}
                           >
                             {problem.difficulty}
                           </span>
@@ -510,15 +609,14 @@ export default function Home() {
                         </td>
 
                         <td className="px-6 py-4 text-right">
-                          <button
+                          <Link
+                            href={`/problems/${encodeURIComponent(problem.slug)}`}
+                            prefetch={false}
                             aria-label={`Open ${problem.title}`}
-                            onClick={() => {
-                              window.location.href = `/problems/${problem.slug}`;
-                            }}
-                            className="inline-flex rounded-lg border border-slate-800 p-2 text-slate-500 transition hover:border-violet-400/30 hover:bg-violet-400/10 hover:text-violet-300"
+                            className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-slate-800 p-2 text-slate-500 transition hover:border-violet-400/30 hover:bg-violet-400/10 hover:text-violet-300"
                           >
                             <ArrowUpRight size={15} />
-                          </button>
+                          </Link>
                         </td>
                       </tr>
                     ))}
@@ -537,6 +635,7 @@ export default function Home() {
                           Try another search term or difficulty.
                         </p>
                         <button
+                          type="button"
                           onClick={() => {
                             setSearch("");
                             setDifficulty("All");
