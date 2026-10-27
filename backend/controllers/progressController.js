@@ -41,5 +41,22 @@ const getUserProgress = async (req, res) => {
     });
   }
 };
+const getSolvedProblems = async (req, res) => {
+  try {
+    const solvedProblems = await Submission.distinct("problem", {
+      user: req.user.userId,
+      verdict: "Accepted",
+    });
 
-module.exports = { getUserProgress };
+    return res.status(200).json({
+      solvedProblems: solvedProblems.map((id) => id.toString()),
+    });
+  } catch (error) {
+    console.error("Solved problems error:", error.message);
+
+    return res.status(500).json({
+      message: "Failed to fetch solved problems.",
+    });
+  }
+};
+module.exports = { getUserProgress, getSolvedProblems };

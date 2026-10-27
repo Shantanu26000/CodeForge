@@ -1,13 +1,38 @@
-
 @import "tailwindcss";
 
-:root {
+:root,
+html[data-theme="dark"] {
   color-scheme: dark;
-  --background: #080b14;
-  --foreground: #e8edf8;
-  --muted: #91a0b9;
-  --border: #202a3e;
-  --accent: #8b5cf6;
+  --background: #101114;
+  --surface: #18191e;
+  --surface-elevated: #202126;
+  --foreground: #f4f4f5;
+  --muted: #a1a1aa;
+  --border: #303138;
+  --accent: #f59e0b;
+  --accent-hover: #d97706;
+  --accent-soft: #3b2c16;
+  --secondary-accent: #d6a77a;
+  --success: #22c55e;
+  --danger: #ef4444;
+  --selection: #704214;
+}
+
+html[data-theme="light"] {
+  color-scheme: light;
+  --background: #f8fafc;
+  --surface: #ffffff;
+  --surface-elevated: #f1f5f9;
+  --foreground: #111827;
+  --muted: #64748b;
+  --border: #e2e8f0;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-soft: #dbeafe;
+  --secondary-accent: #0f766e;
+  --success: #16a34a;
+  --danger: #dc2626;
+  --selection: #bfdbfe;
 }
 
 * {
@@ -20,10 +45,21 @@ body {
   margin: 0;
 }
 
+html {
+  background: var(--background);
+  color: var(--foreground);
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
 }
 
 button,
@@ -43,8 +79,14 @@ a {
 }
 
 ::selection {
-  background: #7044d8;
-  color: white;
+  background: var(--selection);
+  color: var(--foreground);
+}
+
+input,
+select,
+textarea {
+  color: var(--foreground);
 }
 
 .monaco-editor,
@@ -56,5 +98,14 @@ a {
 @media (max-width: 768px) {
   body {
     overflow-x: hidden;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
   }
 }
