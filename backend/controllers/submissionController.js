@@ -103,16 +103,22 @@ const submitCode = async (req, res) => {
         results.push({ testCase: i + 1, status: verdict });
         break;
       }
+if (execution.status !== "Accepted") {
+  verdict =
+    execution.status === "Time Limit Exceeded"
+      ? "Time Limit Exceeded"
+      : "Runtime Error";
 
-      if (execution.status !== "Accepted") {
-        verdict = "Runtime Error";
-        results.push({
-          testCase: i + 1,
-          status: verdict,
-          message: execution.stderr || execution.status,
-        });
-        break;
-      }
+  results.push({
+    testCase: i + 1,
+    status: verdict,
+    ...(testCase.isHidden
+      ? {}
+      : { message: execution.stderr || execution.status }),
+  });
+
+  break;
+}
 
       const actual = normalizeOutput(execution.stdout);
       const expected = normalizeOutput(testCase.expectedOutput);

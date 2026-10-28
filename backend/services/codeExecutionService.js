@@ -11,6 +11,10 @@ const LANGUAGE_IDS = {
   python: 71,
 };
 
+function encodeBase64(value) {
+  return Buffer.from(value, "utf8").toString("base64");
+}
+
 async function executeCode({ code, language, input = "" }) {
   const languageId = LANGUAGE_IDS[language];
 
@@ -42,11 +46,11 @@ async function executeCode({ code, language, input = "" }) {
 
   try {
     const response = await axios.post(
-      `${JUDGE0_BASE_URL}/submissions?base64_encoded=false&wait=true`,
+      `${JUDGE0_BASE_URL}/submissions?base64_encoded=true&wait=true`,
       {
-        source_code: code,
+        source_code: encodeBase64(code),
         language_id: languageId,
-        stdin: input,
+        stdin: encodeBase64(input),
         cpu_time_limit: 5,
         wall_time_limit: 10,
         memory_limit: 128000,
@@ -63,10 +67,15 @@ async function executeCode({ code, language, input = "" }) {
     const data = response.data;
     const status = data.status?.description || "Unknown";
 
+    function decodeOutput(value) {
+      if (!value) return "";
+      return Buffer.from(value, "base64").toString("utf8");
+    }
+
     return {
-      stdout: data.stdout || "",
-      stderr: data.stderr || "",
-      compile_output: data.compile_output || "",
+      stdout: decodeOutput(data.stdout),
+      stderr: decodeOutput(data.stderr),
+      compile_output: decodeOutput(data.compile_output),
       status,
       time: data.time ?? null,
       memory: data.memory ?? null,
