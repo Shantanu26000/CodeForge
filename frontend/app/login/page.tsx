@@ -59,6 +59,15 @@ export default function LoginPage() {
       }
 
       localStorage.setItem("token", token);
+
+      // The backend login endpoint returns the authenticated user's profile.
+      // Save it so the Settings page can display real account details.
+      if (data.user && typeof data.user === "object") {
+        localStorage.setItem("codeforge-user", JSON.stringify(data.user));
+      } else {
+        localStorage.removeItem("codeforge-user");
+      }
+
       router.push("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to log in.");

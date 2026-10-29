@@ -71,6 +71,55 @@ export default function Home() {
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
+  const [accountLabel, setAccountLabel] = useState("Guest");
+  const [accountEmail, setAccountEmail] = useState("");
+  const [accountUsername, setAccountUsername] = useState("");
+  const [settingsMessage, setSettingsMessage] = useState("");
+
+  function readAccountDetails(token: string | null) {
+    if (!token) {
+      return { name: "Guest", username: "", email: "" };
+    }
+
+    // The login API returns a user object as well as a JWT. Read that saved
+    // object first; older sessions may only have the token saved.
+    for (const key of ["user", "codeforge-user", "currentUser"]) {
+      try {
+        const rawUser = localStorage.getItem(key);
+        if (!rawUser) continue;
+        const user = JSON.parse(rawUser);
+        const username = typeof user.username === "string" ? user.username : "";
+        const email = typeof user.email === "string" ? user.email : "";
+        const emailName = email.includes("@") ? email.split("@")[0] : "";
+        const name = typeof user.name === "string" && user.name.trim()
+          ? user.name.trim()
+          : username || emailName;
+        if (name || username || email) {
+          return { name: name || "CodeForge member", username, email };
+        }
+      } catch {
+        // Ignore malformed cached profile data and try the next source.
+      }
+    }
+
+    try {
+      const payloadPart = token.split(".")[1];
+      if (payloadPart) {
+        const normalized = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
+        const payload = JSON.parse(atob(normalized));
+        const name = payload.name || payload.username || payload.email;
+        return {
+          name: name || "Profile details unavailable",
+          username: payload.username || "",
+          email: payload.email || "",
+        };
+      }
+    } catch {
+      // Do not treat an unreadable token payload as a profile.
+    }
+
+    return { name: "Profile details unavailable", username: "", email: "" };
+  }
 
   const [search, setSearch] = useState("");
   const [difficulty, setDifficulty] = useState("All");
@@ -94,13 +143,23 @@ export default function Home() {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
+    const account = readAccountDetails(token);
     setIsLoggedIn(Boolean(token));
+    setAccountLabel(account.name);
+    setAccountUsername(account.username);
+    setAccountEmail(account.email);
     setAuthChecked(true);
   }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
     setIsLoggedIn(false);
+    setAccountLabel("Guest");
+    setAccountUsername("");
+    setAccountEmail("");
+    localStorage.removeItem("user");
+    localStorage.removeItem("codeforge-user");
+    localStorage.removeItem("currentUser");
     setProgress(null);
     setSolvedProblemIds(new Set());
     setProgressError("Log in to view your progress.");
@@ -316,14 +375,10 @@ export default function Home() {
                   ? isLoggedIn
                     ? "/history"
                     : "/login?redirect=/history"
-                  : label === "Dashboard" || label === "Problems"
-                    ? "/"
-                    : "#"
+                  : "/"
               }
               onClick={(event) => {
-                if (label === "Contests") {
-                  event.preventDefault();
-                }
+                if (label !== "Submissions") event.preventDefault();
                 setActiveNav(label);
                 setMobileMenuOpen(false);
               }}
@@ -382,10 +437,10 @@ export default function Home() {
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-[var(--foreground)]">
-              CodeForge User
+              {accountLabel}
             </p>
             <p className="text-xs text-[var(--muted)]">
-              {isLoggedIn ? "Logged in" : "Guest"}
+              {!authChecked ? "Checking session…" : isLoggedIn ? "Signed in" : "Guest session"}
             </p>
           </div>
         </div>
@@ -493,6 +548,94 @@ export default function Home() {
           </div>
         </header>
 
+        {activeNav === "Settings" ? (
+          <div className="mx-auto max-w-4xl px-4 py-8 sm:px-8 sm:py-10">
+            <div className="mb-8">
+              <p className="text-sm font-semibold text-[var(--accent)]">PREFERENCES</p>
+              <h2 className="mt-2 text-3xl font-bold">Settings</h2>
+              <p className="mt-2 text-sm text-[var(--muted)]">Manage your appearance, account session, and security options.</p>
+            </div>
+            {settingsMessage && <p role="status" className="mb-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 text-sm">{settingsMessage}</p>}
+            <section className="mb-5 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-6">
+              <div className="flex items-start gap-4">
+                <div className="rounded-xl bg-[var(--accent-soft)] p-3 text-[var(--accent)]"><Sun size={20} /></div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-semibold">Appearance</h3>
+                  <p className="mt-1 text-sm text-[var(--muted)]">Choose the theme used across CodeForge. Your choice is saved in this browser.</p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <button type="button" onClick={() => { if (theme !== "light") toggleTheme(); setSettingsMessage("Light theme selected."); }} className={`rounded-xl border px-4 py-2 text-sm ${theme === "light" ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]" : "border-[var(--border)] hover:border-[var(--accent)]"}`}>Light theme</button>
+                    <button type="button" onClick={() => { if (theme !== "dark") toggleTheme(); setSettingsMessage("Dark theme selected."); }} className={`rounded-xl border px-4 py-2 text-sm ${theme === "dark" ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]" : "border-[var(--border)] hover:border-[var(--accent)]"}`}>Dark theme</button>
+                  </div>
+                </div>
+              </div>
+            </section>
+            <section className="mb-5 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-6">
+              <div className="flex items-start gap-4">
+                <div className="rounded-xl bg-[var(--accent-soft)] p-3 text-[var(--accent)]"><Settings size={20} /></div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-semibold">Account</h3>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-xl border border-[var(--border)] p-3">
+                      <p className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Display name</p>
+                      <p className="mt-1 break-words font-semibold text-[var(--foreground)]">{!authChecked ? "Loading…" : accountLabel}</p>
+                    </div>
+                    <div className="rounded-xl border border-[var(--border)] p-3">
+                      <p className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Email address</p>
+                      <p className="mt-1 break-words font-semibold text-[var(--foreground)]">{isLoggedIn ? accountEmail || "Not available in this session" : "—"}</p>
+                    </div>
+                    <div className="rounded-xl border border-[var(--border)] p-3">
+                      <p className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Username</p>
+                      <p className="mt-1 break-words font-semibold text-[var(--foreground)]">{isLoggedIn ? accountUsername || accountLabel : "—"}</p>
+                    </div>
+                    <div className="rounded-xl border border-[var(--border)] p-3">
+                      <p className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Session status</p>
+                      <p className="mt-1 font-semibold text-[var(--foreground)]">{!authChecked ? "Checking session…" : isLoggedIn ? "Signed in" : "Guest session"}</p>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {isLoggedIn ? <button type="button" onClick={handleLogout} className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-500">Log out</button> : <Link href="/login" className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-[var(--foreground)]">Log in</Link>}
+                    {!isLoggedIn && <Link href="/register" className="rounded-xl border border-[var(--border)] px-4 py-2 text-sm hover:border-[var(--accent)]">Create account</Link>}
+                  </div>
+                </div>
+              </div>
+            </section>
+            <section className="mb-5 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-6">
+              <div className="flex items-start gap-4">
+                <div className="rounded-xl bg-[var(--accent-soft)] p-3 text-[var(--accent)]"><History size={20} /></div>
+                <div className="flex-1">
+                  <h3 className="font-semibold">Progress and submissions</h3>
+                  <p className="mt-1 text-sm text-[var(--muted)]">Review your past code submissions and verdicts.</p>
+                  <Link href={isLoggedIn ? "/history" : "/login?redirect=/history"} className="mt-4 inline-flex rounded-xl border border-[var(--border)] px-4 py-2 text-sm hover:border-[var(--accent)]">Open submission history <ArrowUpRight size={15} className="ml-2" /></Link>
+                </div>
+              </div>
+            </section>
+            <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-6">
+              <h3 className="font-semibold">Security</h3>
+              <p className="mt-1 text-sm text-[var(--muted)]">Email OTP verification, OTP login, and password recovery are planned for the next authentication phase. They are not enabled yet.</p>
+            </section>
+          </div>
+        ) : activeNav === "Contests" ? (
+          <div className="mx-auto max-w-5xl px-4 py-8 sm:px-8 sm:py-10">
+            <div className="mb-8 rounded-3xl border border-[var(--border)] bg-gradient-to-br from-[var(--accent-soft)] to-[var(--surface)] p-6 sm:p-9">
+              <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] px-3 py-1.5 text-xs font-semibold text-[var(--accent)]"><Trophy size={14} /> CONTEST ARENA</div>
+              <h2 className="mt-4 text-3xl font-bold sm:text-4xl">Think fast. Code smart.</h2>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">Contest mode will have timed rounds, a dedicated problem set, and a leaderboard. The current backend does not yet expose contest schedules or contest submissions, so we won't show fake upcoming events.</p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6">
+                <div className="mb-4 inline-flex rounded-xl bg-[var(--accent-soft)] p-3 text-[var(--accent)]"><BookOpen size={22} /></div>
+                <h3 className="text-lg font-semibold">Practice while we build contests</h3>
+                <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Use the existing problem library to practice algorithms and test your solutions with Run and Submit.</p>
+                <button type="button" onClick={() => setActiveNav("Problems")} className="mt-5 rounded-xl bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-[var(--foreground)]">Browse problems</button>
+              </section>
+              <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6">
+                <div className="mb-4 inline-flex rounded-xl bg-[var(--accent-soft)] p-3 text-[var(--accent)]"><Trophy size={22} /></div>
+                <h3 className="text-lg font-semibold">What contest mode will include</h3>
+                <ul className="mt-3 space-y-2 text-sm text-[var(--muted)]"><li>• Timed rounds and start/end times</li><li>• Contest-specific problem sets</li><li>• Live standings and submission penalties</li><li>• Past contest history</li></ul>
+              </section>
+            </div>
+          </div>
+        ) : (
         <div className="mx-auto max-w-[1440px] px-4 py-8 sm:px-8 sm:py-10">
           <section className="mb-8 flex flex-col justify-between gap-5 md:flex-row md:items-end">
             <div>
@@ -501,7 +644,7 @@ export default function Home() {
                 YOUR CODING JOURNEY STARTS HERE
               </div>
               <h2 className="text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
-                Problem <span className="text-[var(--accent)]">Library</span>
+                {activeNav === "Dashboard" ? <>Your <span className="text-[var(--accent)]">Dashboard</span></> : <>Problem <span className="text-[var(--accent)]">Library</span></>}
               </h2>
               <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--muted)] sm:text-base">
                 Sharpen your skills, master algorithms, and become a better
@@ -513,6 +656,18 @@ export default function Home() {
               Practice at your own pace
             </div>
           </section>
+
+          {activeNav === "Dashboard" && (
+            <section className="mb-8 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-6">
+              <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+                <div>
+                  <h3 className="font-semibold">Pick up where you left off</h3>
+                  <p className="mt-1 text-sm text-[var(--muted)]">Track accepted solutions here, then open the problem library when you're ready for another challenge.</p>
+                </div>
+                <button type="button" onClick={() => setActiveNav("Problems")} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-[var(--foreground)]">Explore problems <ArrowUpRight size={16} /></button>
+              </div>
+            </section>
+          )}
 
           <section className="mb-8 grid grid-cols-2 gap-3 xl:grid-cols-4">
             <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-5">
@@ -597,10 +752,10 @@ export default function Home() {
               <div className="flex flex-col justify-between gap-4 xl:flex-row xl:items-center">
                 <div>
                   <h3 className="text-lg font-semibold text-[var(--foreground)]">
-                    All Problems
+                    {activeNav === "Dashboard" ? "Your practice overview" : "All Problems"}
                   </h3>
                   <p className="mt-1 text-xs text-[var(--muted)]">
-                    Explore challenges and track your progress.
+                    {activeNav === "Dashboard" ? "Your progress at a glance. Use Problems to browse and filter the full library." : "Explore challenges and track your progress."}
                   </p>
                 </div>
 
@@ -819,6 +974,7 @@ export default function Home() {
             <p>Practice consistently. Progress relentlessly.</p>
           </footer>
         </div>
+        )}
       </main>
     </div>
   );
