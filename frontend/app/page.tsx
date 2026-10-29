@@ -28,6 +28,13 @@ import { getProblems, type Problem } from "./lib/api";
 
 type Difficulty = "Easy" | "Medium" | "Hard";
 
+type StreakStats = {
+  currentStreak: number;
+  longestStreak: number;
+  activeDays: number;
+  lastSolvedDate: string | null;
+};
+
 type UserProgress = {
   totalSubmissions: number;
   acceptedSubmissions: number;
@@ -133,6 +140,8 @@ export default function Home() {
   const [reloadKey, setReloadKey] = useState(0);
 
   const [progress, setProgress] = useState<UserProgress | null>(null);
+  const [streak, setStreak] = useState<StreakStats | null>(null);
+  const [streakLoading, setStreakLoading] = useState(true);
   const [progressLoading, setProgressLoading] = useState(true);
   const [progressError, setProgressError] = useState("");
 
@@ -161,6 +170,8 @@ export default function Home() {
     localStorage.removeItem("codeforge-user");
     localStorage.removeItem("currentUser");
     setProgress(null);
+    setStreak(null);
+    setStreakLoading(false);
     setSolvedProblemIds(new Set());
     setProgressError("Log in to view your progress.");
     setProgressLoading(false);
@@ -341,6 +352,54 @@ export default function Home() {
     };
   }, [authChecked, isLoggedIn]);
 
+  useEffect(() => {
+    if (!authChecked) return;
+
+    let cancelled = false;
+
+    async function loadStreak() {
+      if (!isLoggedIn) {
+        setStreak(null);
+        setStreakLoading(false);
+        return;
+      }
+
+      setStreakLoading(true);
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) {
+          setStreak(null);
+          setStreakLoading(false);
+          return;
+        }
+
+        const response = await fetch(`${API_BASE_URL}/submissions/streak`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || "Unable to load streak.");
+        }
+
+        if (!cancelled) setStreak(data);
+      } catch (err) {
+        if (!cancelled) {
+          console.error("Streak loading error:", err);
+          setStreak(null);
+        }
+      } finally {
+        if (!cancelled) setStreakLoading(false);
+      }
+    }
+
+    loadStreak();
+    return () => {
+      cancelled = true;
+    };
+  }, [authChecked, isLoggedIn]);
+
   const counts = {
     Easy: problems.filter((p) => p.difficulty === "Easy").length,
     Medium: problems.filter((p) => p.difficulty === "Medium").length,
@@ -409,13 +468,24 @@ export default function Home() {
             </span>
           </div>
           <p className="text-xs leading-5 text-[var(--muted)]">
-            Every problem you solve brings you one step closer to mastery.
+            {streakLoading
+              ? "Loading your streak…"
+              : !isLoggedIn
+                ? "Log in to track your streak."
+                : `${streak?.currentStreak ?? 0} day current streak · ${streak?.longestStreak ?? 0} day best`}
           </p>
           <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-[var(--surface-elevated)]">
-            <div className="h-full w-1/4 rounded-full bg-[var(--accent)]" />
+            <div
+              className="h-full rounded-full bg-[var(--accent)] transition-all"
+              style={{
+                width: `${Math.min(100, ((streak?.currentStreak ?? 0) % 7) / 7 * 100)}%`,
+              }}
+            />
           </div>
           <p className="mt-2 text-[11px] text-[var(--muted)]">
-            Start your coding journey
+            {isLoggedIn
+              ? `${streak?.activeDays ?? 0} active days · Solve today to keep it going`
+              : "Start your coding journey"}
           </p>
         </div>
 

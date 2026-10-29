@@ -1,5 +1,6 @@
 
 const { body, validationResult } = require("express-validator");
+const mongoose = require("mongoose");
 const Problem = require("../models/Problem");
 const Submission = require("../models/Submission");
 const { executeCode } = require("../services/codeExecutionService");
@@ -181,6 +182,85 @@ if (execution.status !== "Accepted") {
   }
 };
 
+
+const getStreak = async (req, res) => {
+  try {
+    // Only Accepted submissions count. Multiple accepted submissions on one
+    // calendar day count as one active day.
+    const acceptedDates = await Submission.aggregate([
+      {
+        $match: {
+          user: new mongoose.Types.ObjectId(req.user.userId),
+          verdict: "Accepted",
+        },
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: "Asia/Kolkata" },
+          },
+        },
+      },
+      { $sort: { _id: -1 } },
+    ]);
+
+    const dates = acceptedDates.map((item) => item._id);
+    const activeDays = new Set(dates);
+    const dayFormatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    const dayKey = (date) => {
+      const parts = dayFormatter.formatToParts(date);
+      const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+      return `${values.year}-${values.month}-${values.day}`;
+    };
+
+    const today = dayKey(new Date());
+    const yesterdayDate = new Date();
+    yesterdayDate.setUTCDate(yesterdayDate.getUTCDate() - 1);
+    const yesterday = dayKey(yesterdayDate);
+
+    let currentStreak = 0;
+    if (dates.length && (activeDays.has(today) || activeDays.has(yesterday))) {
+      let cursor = new Date(`${activeDays.has(today) ? today : yesterday}T00:00:00.000Z`);
+      while (activeDays.has(cursor.toISOString().slice(0, 10))) {
+        currentStreak += 1;
+        cursor.setUTCDate(cursor.getUTCDate() - 1);
+      }
+    }
+
+    let longestStreak = 0;
+    let runningStreak = 0;
+    let previousDate = null;
+
+    for (const dateString of [...dates].sort()) {
+      const currentDate = new Date(`${dateString}T00:00:00.000Z`);
+      if (previousDate) {
+        const difference = (currentDate - previousDate) / 86400000;
+        runningStreak = difference === 1 ? runningStreak + 1 : 1;
+      } else {
+        runningStreak = 1;
+      }
+      longestStreak = Math.max(longestStreak, runningStreak);
+      previousDate = currentDate;
+    }
+
+    return res.status(200).json({
+      currentStreak,
+      longestStreak,
+      activeDays: dates.length,
+      lastSolvedDate: dates[0] || null,
+      calendarTimezone: "Asia/Kolkata",
+    });
+  } catch (error) {
+    console.error("Streak error:", error.message);
+    return res.status(500).json({ message: "Failed to fetch streak." });
+  }
+};
+
 const getSubmissionHistory = async (req, res) => {
   try {
     const submissions = await Submission.find({
@@ -208,4 +288,5 @@ module.exports = {
   validateSubmission,
   submitCode,
   getSubmissionHistory,
+  getStreak,
 };
